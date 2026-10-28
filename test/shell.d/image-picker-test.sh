@@ -366,6 +366,7 @@ function wheelContext(rightToLeft) {
     deleteConfirmOpen: false,
     wheelAccumulator: 0,
     wheelPixelStep: pixelStep,
+    wheelAxis: "",
     moves: [],
     selectAdjacent(direction) { this.moves.push(direction) },
     Commons: { I18n: { rightToLeft: !!rightToLeft } }
@@ -392,6 +393,18 @@ scrolling.wheelSelect({ pixelDelta: { y: -pixelStep / 2, x: 0 }, angleDelta: { y
 assertDeepEqual(scrolling.moves, [], 'a touchpad nudge under a step moves nothing')
 scrolling.wheelSelect({ pixelDelta: { y: -pixelStep / 2, x: 0 }, angleDelta: { y: 0, x: 0 } })
 assertDeepEqual(scrolling.moves, [1], "touchpad deltas add up to one step")
+
+// Switching axes discards the other axis's pending travel: half a vertical
+// flick then a horizontal swipe must not combine into a step — in a
+// right-to-left layout the two gestures point opposite ways.
+scrolling = wheelContext()
+scrolling.wheelSelect({ pixelDelta: { y: -pixelStep / 2, x: 0 }, angleDelta: { y: 0, x: 0 } })
+assertDeepEqual(scrolling.moves, [], 'half a vertical step moves nothing yet')
+scrolling.wheelSelect({ pixelDelta: { y: 0, x: -pixelStep / 2 }, angleDelta: { y: 0, x: 0 } })
+assertDeepEqual(scrolling.moves, [], 'a horizontal swipe spends no vertical travel left pending')
+assertEqual(scrolling.wheelAccumulator, -60, 'the axis switch starts the accumulator fresh; half a step is 60 units')
+scrolling.wheelSelect({ pixelDelta: { y: 0, x: -pixelStep / 2 }, angleDelta: { y: 0, x: 0 } })
+assertDeepEqual(scrolling.moves, [1], 'the swipe completes on its own axis')
 
 scrolling = wheelContext()
 scrolling.deleteConfirmOpen = true

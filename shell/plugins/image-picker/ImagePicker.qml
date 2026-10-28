@@ -37,6 +37,9 @@ Item {
   // Half a wheel step left over from the last scroll, so a touchpad's small
   // deltas add up to a whole card before anything moves.
   property real wheelAccumulator: 0
+  // The axis travel is accumulating on; a swipe across axes starts the
+  // accumulator fresh so one gesture's leftover never pays for the other.
+  property string wheelAxis: ""
   // Pixels of touchpad travel that move the selection one card. A mouse wheel
   // reports 120 units per detent, which wheelSteps already treats as one card;
   // touchpads report pixels, so they are scaled onto the same notch here.
@@ -74,7 +77,7 @@ Item {
   readonly property int previewRadius: Math.max(1, Math.min(16, Math.ceil((panel.width - expandedWidth) / (2 * (sliceWidth + sliceSpacing))) + 1))
   onPreviewRadiusChanged: updateVisibleItems()
 
-  onOpenedChanged: if (!opened) { layoutSettled = false; renderedFrames = 0; deleteConfirmOpen = false; pendingDeleteTheme = ""; deleteSelectionPath = ""; awaitingDeleteRefresh = false; wheelAccumulator = 0 }
+  onOpenedChanged: if (!opened) { layoutSettled = false; renderedFrames = 0; deleteConfirmOpen = false; pendingDeleteTheme = ""; deleteSelectionPath = ""; awaitingDeleteRefresh = false; wheelAccumulator = 0; wheelAxis = "" }
 
   PreviewHold {
     id: previewHold
@@ -199,6 +202,15 @@ Item {
     }
     if (!delta) return
     if (fromPixels) delta *= 120 / root.wheelPixelStep
+
+    // A new axis starts fresh: half a vertical flick must not be spent by the
+    // next horizontal swipe, which in a right-to-left layout points the other
+    // way. A mouse always arrives as a full notch, so this discards nothing.
+    var axis = horizontal ? "horizontal" : "vertical"
+    if (axis !== root.wheelAxis) {
+      root.wheelAccumulator = 0
+      root.wheelAxis = axis
+    }
 
     var step = Util.wheelSteps(root.wheelAccumulator, delta)
     root.wheelAccumulator = step.remainder
